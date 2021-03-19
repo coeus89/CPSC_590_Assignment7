@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31005.135
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KMeansClustering", "KMeansClustering\KMeansClustering.csproj", "{C7EDF91D-AF73-4E37-8F48-E27BBE4B2472}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C7EDF91D-AF73-4E37-8F48-E27BBE4B2472}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7EDF91D-AF73-4E37-8F48-E27BBE4B2472}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7EDF91D-AF73-4E37-8F48-E27BBE4B2472}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7EDF91D-AF73-4E37-8F48-E27BBE4B2472}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {38C66336-C109-480C-A678-7610C6B3DA7C}
+	EndGlobalSection
+EndGlobal
