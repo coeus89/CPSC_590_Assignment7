@@ -18,8 +18,84 @@ namespace KMeansClustering
         public static int DoKMeans(int numClusters, ref List<MyPoint> PList, ref List<ClusterCenterPoint> CL, 
             double maxError, int maxIterations, bool doKmeansPlusPlus = false)
         {
-            List<ClusterCenterPoint> Clist = null;
-            
+            List<ClusterCenterPoint> CList = null;
+            if (doKmeansPlusPlus == false)
+                InitializeCentersRandomlyFromGivenPoints(ref PList, ref CList, numClusters);
+            else
+                InitializeCentersRandomlyFromKPP(ref PList, ref CList, numClusters);
+
+            double error = double.MaxValue;
+            int iteration = 0;
+            while((iteration < maxIterations) || (error < maxError))
+            {
+                // determine which cluster each point belongs to
+                foreach(MyPoint p in PList)
+                {
+                    // determine which cluster it belongs to
+                    int k = 0;
+                    double prevDist = double.MaxValue;
+                    foreach (ClusterCenterPoint cp in CList)
+                    {
+                        double dist = FindDistance(p, cp);
+                        if (dist < prevDist)
+                        {
+                            prevDist = dist;
+                            p.ClusterId = k;
+                        }
+                        k++;
+                    }
+                }
+
+                // This assumes 3 clusters
+                int c0count = (from p in PList where p.ClusterId == 0 select p).ToList<MyPoint>().Count;
+                int c1count = (from p in PList where p.ClusterId == 1 select p).ToList<MyPoint>().Count;
+                int c2count = (from p in PList where p.ClusterId == 2 select p).ToList<MyPoint>().Count;
+
+                //// This is good for however many clusters there are
+                //int[] ClusterPointCounts = new int[numClusters];
+                //for (int i = 0; i < numClusters; i++)
+                //    ClusterPointCounts[i] = (from p in PList where p.ClusterId == i select p).ToList<MyPoint>().Count;
+
+                // ---------------Recompute cluster centers-------------------
+                List<ClusterCenterPoint> CListNew = new List<ClusterCenterPoint>();
+                int[] CCount = new int[CList.Count];
+                foreach(ClusterCenterPoint cp in CList)
+                {
+                    ClusterCenterPoint cpnew = new ClusterCenterPoint();
+                    CListNew.Add(cpnew);
+                    cpnew.Cx = 0;
+                    cpnew.Cy = 0;
+                }
+                foreach (MyPoint p in PList)
+                {
+                    CListNew[p.ClusterId].Cx += p.X;
+                    CListNew[p.ClusterId].Cy += p.Y;
+                    CCount[p.ClusterId]++;
+                }
+                int knew = 0;
+                foreach (ClusterCenterPoint cp in CListNew)
+                {
+                    cp.Cx = cp.Cx / CCount[knew];
+                    cp.Cy = cp.Cy / CCount[knew];
+                    knew++;
+                }
+                //------------------end recompute cluster centers-----------------
+
+                //---------------see if new centers are different from previous---
+                double err = 0;
+                for (int i = 0; i < CList.Count; i++)
+                {
+                    err = err + ((CListNew[i].Cx - CList[i].Cx) * (CListNew[i].Cx - CList[i].Cx) + 
+                        (CListNew[i].Cy - CList[i].Cy) * (CListNew[i].Cy - CList[i].Cy));
+                }
+                if (err < maxError)
+                    break;
+                CList.Clear();
+                CList = CListNew;
+                iteration++;
+            }
+            CL = CList;
+            return iteration;
         }
 
         public static void InitializeCentersRandomlyBetweenMaxMinRanges(ref List<MyPoint> PList, ref List<ClusterCenterPoint> CList, int numClusters)
@@ -64,7 +140,7 @@ namespace KMeansClustering
 
         }
 
-        public static void InitializeCentersRandomlyFromKPP(List<MyPoint> PList, ref List<ClusterCenterPoint> CList, int numClusters)
+        public static void InitializeCentersRandomlyFromKPP(ref List<MyPoint> PList, ref List<ClusterCenterPoint> CList, int numClusters)
         {
             Random rand = new Random((int)DateTime.Now.Ticks);
             CList = new List<ClusterCenterPoint>();
