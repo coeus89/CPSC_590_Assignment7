@@ -11,8 +11,70 @@ namespace KMeansClustering
         public static int DoKMeansWithMinVariance(int numClusters, ref List<MyPoint> PList, ref List<ClusterCenterPoint> CL, 
             double maxError, int maxIterations, bool minVariance)
         {
-            
-            return -1;
+
+            double stddev = 0;
+            if (minVariance == true)
+                stddev = double.MaxValue;
+            else
+                stddev = double.MinValue;
+
+            List<MyPoint> PListBest = new List<MyPoint>();
+            List<ClusterCenterPoint> CListBest = new List<ClusterCenterPoint>();
+            int iter = 0;
+            for (int m = 0; m < 20; m++) // pick best i.e., most balanced clustering
+            {                            // of 20 attempts at clustering
+                List<MyPoint> PListCopy = new List<MyPoint>();
+                foreach (MyPoint mp in PList)
+                    PListCopy.Add((MyPoint)mp.Clone());
+                List<ClusterCenterPoint> CListCopy = null;
+                iter += KMeans.DoKMeans(numClusters, ref PListCopy, ref CListCopy, 0.01, 100, true); // true = do kmeansplusplus
+                // ----compute variance of cluster memberships
+                int[] CCount = new int[numClusters];
+                for (int i = 0; i < numClusters; i++)
+                    CCount[i] = 0;
+                foreach (MyPoint mp in PListCopy)
+                    CCount[mp.ClusterId] += 1;
+
+                double variance = 0;
+                for (int i = 0; i < numClusters; i++)
+                    variance += Math.Pow((CCount[i] - PListCopy.Count / (double)numClusters), 2);
+                double stddevCopy = Math.Sqrt(variance);
+
+                string out1 = "";
+                for (int n = 0; n < CCount.Length; n++)
+                    out1 += "Cluster " + n.ToString() + " count = " + CCount[n].ToString() + "\n";
+                //MessageBox.Show("StdDev = " + stddevCopy.ToString() + " " + out1);
+
+                if(minVariance == true)
+                {
+                    if(stddevCopy < stddev) // if it improves, copy data into best
+                    {
+                        stddev = stddevCopy;
+                        PListBest.Clear();
+                        foreach (MyPoint mp in PListCopy)
+                            PListBest.Add((MyPoint)mp.Clone());
+                        CListBest.Clear();
+                        foreach(ClusterCenterPoint cp in CListCopy)
+                            CListBest.Add((ClusterCenterPoint)cp.Clone());
+                    }
+                }
+                else
+                {
+                    if (stddevCopy > stddev)
+                    {
+                        stddev = stddevCopy;
+                        PListBest.Clear();
+                        foreach (MyPoint mp in PListCopy)
+                            PListBest.Add((MyPoint)mp.Clone());
+                        CListBest.Clear();
+                        foreach (ClusterCenterPoint cp in CListCopy)
+                            CListBest.Add((ClusterCenterPoint)cp.Clone());
+                    }
+                }
+            }
+            CL = CListBest;
+            PList = PListBest;
+            return iter;
         }
 
         public static int DoKMeans(int numClusters, ref List<MyPoint> PList, ref List<ClusterCenterPoint> CL, 

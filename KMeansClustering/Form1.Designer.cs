@@ -49,6 +49,7 @@ namespace KMeansClustering
             this.btnLoadDataFile.TabIndex = 0;
             this.btnLoadDataFile.Text = "Load Data File";
             this.btnLoadDataFile.UseVisualStyleBackColor = true;
+            this.btnLoadDataFile.Click += new System.EventHandler(this.btnLoadDataFile_Click);
             // 
             // btnInitializeData
             // 
@@ -67,6 +68,7 @@ namespace KMeansClustering
             this.btnDoKMeans.TabIndex = 0;
             this.btnDoKMeans.Text = "Do KMeans";
             this.btnDoKMeans.UseVisualStyleBackColor = true;
+            this.btnDoKMeans.Click += new System.EventHandler(this.btnDoKMeans_Click);
             // 
             // btnDoKMeansPlus
             // 
