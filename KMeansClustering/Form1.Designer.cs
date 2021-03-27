@@ -59,6 +59,7 @@ namespace KMeansClustering
             this.btnInitializeData.TabIndex = 0;
             this.btnInitializeData.Text = "Initialize Data";
             this.btnInitializeData.UseVisualStyleBackColor = true;
+            this.btnInitializeData.Click += new System.EventHandler(this.btnInitializeData_Click);
             // 
             // btnDoKMeans
             // 
@@ -78,6 +79,7 @@ namespace KMeansClustering
             this.btnDoKMeansPlus.TabIndex = 0;
             this.btnDoKMeansPlus.Text = "Do KMeans ++ Clustering";
             this.btnDoKMeansPlus.UseVisualStyleBackColor = true;
+            this.btnDoKMeansPlus.Click += new System.EventHandler(this.btnDoKMeansPlus_Click);
             // 
             // btnKMeansPlusMinVar
             // 
@@ -87,6 +89,7 @@ namespace KMeansClustering
             this.btnKMeansPlusMinVar.TabIndex = 0;
             this.btnKMeansPlusMinVar.Text = "Do KMeans ++ with Min Variance";
             this.btnKMeansPlusMinVar.UseVisualStyleBackColor = true;
+            this.btnKMeansPlusMinVar.Click += new System.EventHandler(this.btnKMeansPlusMinVar_Click);
             // 
             // txtNumOfClusters
             // 
@@ -110,14 +113,14 @@ namespace KMeansClustering
             this.txtResult.Location = new System.Drawing.Point(12, 286);
             this.txtResult.Multiline = true;
             this.txtResult.Name = "txtResult";
-            this.txtResult.Size = new System.Drawing.Size(148, 379);
+            this.txtResult.Size = new System.Drawing.Size(148, 605);
             this.txtResult.TabIndex = 3;
             // 
             // pic1
             // 
             this.pic1.Location = new System.Drawing.Point(167, 12);
             this.pic1.Name = "pic1";
-            this.pic1.Size = new System.Drawing.Size(1025, 653);
+            this.pic1.Size = new System.Drawing.Size(1110, 879);
             this.pic1.TabIndex = 4;
             this.pic1.TabStop = false;
             // 
@@ -125,7 +128,7 @@ namespace KMeansClustering
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1204, 677);
+            this.ClientSize = new System.Drawing.Size(1289, 903);
             this.Controls.Add(this.pic1);
             this.Controls.Add(this.txtResult);
             this.Controls.Add(this.lblNumClusters);
