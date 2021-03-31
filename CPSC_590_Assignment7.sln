@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KMeansClustering", "KMeansC
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KMedoidsClustering", "KMedoidsClustering\KMedoidsClustering.csproj", "{77452236-35D0-4A03-9C0F-414A00531BEC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GMM", "GMM\GMM.csproj", "{CF39CC45-B034-4A20-9ACA-A7455CD16BEE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{77452236-35D0-4A03-9C0F-414A00531BEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{77452236-35D0-4A03-9C0F-414A00531BEC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{77452236-35D0-4A03-9C0F-414A00531BEC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF39CC45-B034-4A20-9ACA-A7455CD16BEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF39CC45-B034-4A20-9ACA-A7455CD16BEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF39CC45-B034-4A20-9ACA-A7455CD16BEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF39CC45-B034-4A20-9ACA-A7455CD16BEE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -79,7 +79,7 @@
             // 
             this.pic1.Location = new System.Drawing.Point(452, 41);
             this.pic1.Name = "pic1";
-            this.pic1.Size = new System.Drawing.Size(1657, 1066);
+            this.pic1.Size = new System.Drawing.Size(2310, 1476);
             this.pic1.TabIndex = 5;
             this.pic1.TabStop = false;
             // 
@@ -114,7 +114,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(16F, 31F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(2166, 1154);
+            this.ClientSize = new System.Drawing.Size(2803, 1546);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.txtNumClusters);
             this.Controls.Add(this.btnGMMND);
