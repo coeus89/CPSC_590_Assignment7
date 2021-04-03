@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -174,7 +175,10 @@ namespace GMM
                 //---------------end Maximization-------------------------------
             }
             var G = Gamma;
-            MessageBox.Show("End Expectation Maximization..");
+            string message = "End Expectation Maximization..\n" 
+                + "k0: mean: " + mu[0].ToString() + ", Stddev: " + sigma[0].ToString() + "\n"
+                + "k1: mean: " + mu[1].ToString() + ", Stddev: " + sigma[1].ToString();
+            MessageBox.Show(message);
         }
 
         public double ComputeVariance(double[] data)
@@ -193,6 +197,11 @@ namespace GMM
             double res = (1 / (stddev * Math.Sqrt(2.0 * Math.PI))) * 
                 Math.Exp( (-1 * (num - mean) * (num - mean)) / (2 * stddev * stddev));
             return res;
+        }
+
+        public double Gaussian3D(double[] num, double[] mean, double[] stddev)
+        {
+            throw new NotImplementedException();
         }
 
         private void btnTest_Click(object sender, EventArgs e)
@@ -374,6 +383,153 @@ namespace GMM
             }
             MyImageProc.DrawClusters(pic1, PList, 1.0, 1);
             return PList;
+        }
+
+        private void btnTennisGMM_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                int k = int.Parse(txtNumClusters.Text);   // number of clusters
+                int dim = 3; // number of dimensions for data
+
+                OpenFileDialog ofd = new OpenFileDialog();
+                ofd.InitialDirectory = @"S:\Users\Jkara\OneDrive\Documents\CPSC_590-AM\Assignments_Workspace\CPSC_590_Assignment7\Data\TennisImages";
+                Bitmap picTennis = null;
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    string fname = ofd.FileName;
+                    FileInfo fi = new FileInfo(fname);
+                    Stream strm = fi.Open(FileMode.Open, FileAccess.Read);
+                    picTennis = new Bitmap(strm);
+                    pic1.Image = picTennis;
+                    pic1.Refresh();
+                    strm.Close();
+                }
+                int datasize = picTennis.Width * picTennis.Height;
+                double[][] imgVectorC = new double[datasize][];
+                for (int i = 0; i < datasize; i++)
+                {
+                    imgVectorC[i] = new double[dim];
+                }
+                Color c1 = new Color();
+                //Parallel.For(0, picTennis.Height, (i) =>
+                for(int i = 0; i < picTennis.Height;i++)
+                {
+                    for (int j = 0; j < picTennis.Width; j++)
+                    {
+                        c1 = picTennis.GetPixel(j, i); // x = width = j, y = height = i
+                        // blue
+                        imgVectorC[i * (picTennis.Width) + j][0] = c1.B;
+                        // green
+                        imgVectorC[i * (picTennis.Width) + j][1] = c1.G;
+                        // red
+                        imgVectorC[i * (picTennis.Width) + j][2] = c1.R;
+                    }
+                }//);
+                Matrix imgVecMatrix = new Matrix(imgVectorC);
+                GMM_NDim tennisGMM = new GMM_NDim(k, dim, imgVecMatrix);
+                tennisGMM.ComputeGMM_ND();
+
+                // determine class membership i.e., which point belongs to which cluster
+                //PList = new List<MyPoint>();//delete
+                int[] imgClass = new int[datasize];
+                for (int i = 0; i < imgVecMatrix.Rows; i++)
+                {
+                    // Gamma matrix has the probabilities for a data point for its membership in each cluster
+                    double[] probabs = new double[k];
+                    int cnum = 0;
+                    double maxprobab = tennisGMM.Gamma[i, 0];
+                    for (int m = 0; m < k; m++)
+                    {
+                        if (tennisGMM.Gamma[i, m] > maxprobab)
+                        {
+                            cnum = m;  // data i belongs to cluster m
+                            maxprobab = tennisGMM.Gamma[i, m];
+                        }
+                    }
+                    imgClass[i] = cnum;
+                    //MyPoint pt = new MyPoint { ClusterId = cnum, X = X[i, 0], Y = X[i, 1] }; //delete
+                    //PList.Add(pt); //delete
+                }
+                //MyImageProc.DrawClusters(pic1, PList, 1, k); //delete
+                int index = int.MaxValue;
+                int[] counts = new int[k];
+                for (int i = 0; i < k; i++)
+                {
+                    counts[i] = imgClass.Where(x => x == i).ToArray().Count(); 
+                }
+                int smallestGroup = Array.IndexOf(counts, counts.Min());
+
+                int iterator = 0;
+
+                unsafe
+                {
+                    BitmapData bitmapData = picTennis.LockBits(new Rectangle(0, 0, picTennis.Width, picTennis.Height), ImageLockMode.ReadWrite, picTennis.PixelFormat);
+                    int bytesPerPixel = System.Drawing.Bitmap.GetPixelFormatSize(picTennis.PixelFormat);
+                    int height = picTennis.Height;
+                    int widthinBytes = bitmapData.Width * bytesPerPixel;
+                    byte* ptr = (byte*)bitmapData.Scan0; // point to the first pixel
+                    for (int y = 0; y < height; y++)
+                    {
+                        byte* currentLine = ptr + (y * bitmapData.Stride);
+                        for (int x = 0; x < widthinBytes; x = x + bytesPerPixel)
+                        {
+                            if (imgClass[iterator] != smallestGroup)
+                            {
+                                int blue = currentLine[x];
+                                int green = currentLine[x + 1];
+                                int red = currentLine[x + 2];
+                                int gray1 = (int)((0.299 * red) + 0.587 * green + 0.114 * blue);
+                                currentLine[x] = (byte)gray1;
+                                currentLine[x + 1] = (byte)gray1;
+                                currentLine[x + 2] = (byte)gray1;
+                                iterator++;
+                            }
+                        }
+                    }
+                    picTennis.UnlockBits(bitmapData);
+                } // end of unsafe
+                pic1.Image = picTennis;
+                pic1.Refresh();
+                #region CommentedCode
+                //unsafe
+                //{
+                //    BitmapData bitmapData = picTennis.LockBits(new Rectangle(0, 0, picTennis.Width, picTennis.Height), ImageLockMode.ReadOnly, picTennis.PixelFormat);
+                //    int bytesPerPixel = System.Drawing.Bitmap.GetPixelFormatSize(picTennis.PixelFormat) / 8;
+                //    int heightInPixels = bitmapData.Height;
+                //    int widthInBytes = bitmapData.Width * bytesPerPixel;
+                //    byte* ptrFirstPixel = (byte*)bitmapData.Scan0;
+                //    int* blueptr = (int*)imgVectorC[2][0];
+                //    int* greenptr = (int*)imgVectorC[1][0];
+                //    int* redptr = (int*)imgVectorC[0][0];
+                //    int* itptr = null;
+                //    int iterator = 0;
+                //    int tenWidth = picTennis.Width;
+                //    //for (int y = 0; y < heightInPixels; y++)
+                //    Parallel.For(0, heightInPixels, y =>
+                //    {
+                //        byte* currentLine = ptrFirstPixel + (y * bitmapData.Stride);
+                //        for (int x = 0; x < widthInBytes; x = x + bytesPerPixel)
+                //        {
+                //            // blue
+                //            itptr = blueptr + (y * (tenWidth + 1) + x);
+                //            itptr = (int*)currentLine[x];
+                //            // green
+                //            itptr = greenptr + (y * (tenWidth + 1) + x);
+                //            itptr = (int*)currentLine[x + 1];
+                //            // red
+                //            itptr = redptr + (y * (tenWidth + 1) + x);
+                //            itptr = (int*)currentLine[x + 2];
+                //        }
+                //    });
+                //    picTennis.UnlockBits(bitmapData);
+                //}
+                #endregion
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
         }
     }
 }
