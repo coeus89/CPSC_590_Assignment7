@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace GMM
@@ -76,35 +77,108 @@ namespace GMM
             // ---------------------------Expectation Maximization------------------------------
             for (int n = 0; n < 1000; n++)
             {
-                //---------perform Expectation step---------------------
-                for (int i = 0; i < X.Rows; i++)
-                {
-                    for (int k1 = 0; k1 < k; k1++)
-                    {
-                        pdf[i, k1] = GaussianMV(X, i, dim, mu[k1], sigma[k1]);
-                    }
-                }
-                double[] Gdenom = new double[X.Rows];
-                for (int i = 0; i < X.Rows; i++) // denominator for Gamma
-                {
-                    double sum = 0;
-                    for (int k1 = 0; k1 < k; k1++)
-                    {
-                        sum = sum + phi[k1] * pdf[i, k1];
-                    }
-                    Gdenom[i] = sum;
-                }
+                ManualResetEvent[,] pdfBlocker = new ManualResetEvent[X.Rows, k];
+                ManualResetEvent[] GdenomBlocker = new ManualResetEvent[X.Rows];
+                ManualResetEvent[,] GammaKBlocker = new ManualResetEvent[X.Rows, k];
+                ManualResetEvent[] PhiBlocker = new ManualResetEvent[X.Rows];
 
-                for (int i = 0; i < X.Rows; i++)
+                Parallel.For(0, X.Rows, (x) =>
                 {
-                    for (int k1 = 0; k1 < k; k1++)
+                    for (int y = 0; y < k; y++)
                     {
-                        Gamma[i, k1] = (phi[k1] * pdf[i, k1]) / Gdenom[i];
+                        pdfBlocker[x, y] = new ManualResetEvent(false);
+                        pdfBlocker[x, y].Reset();
+                        GammaKBlocker[x, y] = new ManualResetEvent(false);
                     }
-                }
+                    GdenomBlocker[x] = new ManualResetEvent(false);
+                    PhiBlocker[x] = new ManualResetEvent(false);
+                });
+
+                List<Task> taskList = new List<Task>();
+
+                #region perform Expectation step
+                //---------perform Expectation step---------------------
+                taskList.Add(Task.Factory.StartNew(
+                    () =>
+                    {
+                        // Make Parallel.for
+                        for (int i = 0; i < X.Rows; i++)
+                        {
+                            for (int k1 = 0; k1 < k; k1++)
+                            {
+                                pdf[i, k1] = GaussianMV(X, i, dim, mu[k1], sigma[k1]);
+                                pdfBlocker[i, k1].Set();
+                            }
+                        }
+                    }));
+
+
+                double[] Gdenom = new double[X.Rows];
+                taskList.Add(Task.Factory.StartNew(
+                    () =>
+                    {
+                        // Make Parallel.for
+                        for (int i = 0; i < X.Rows; i++) // denominator for Gamma
+                        {
+                            double sum = 0;
+                            for (int k1 = 0; k1 < k; k1++)
+                            {
+                                pdfBlocker[i, k1].WaitOne();
+                                sum = sum + phi[k1] * pdf[i, k1];
+                            }
+                            Gdenom[i] = sum;
+                            GdenomBlocker[i].Set();
+                        }
+                    }));
+
+                taskList.Add(Task.Factory.StartNew(
+                    () =>
+                    {
+                        // Make Parallel.for
+                        for (int i = 0; i < X.Rows; i++)
+                        {
+                            GdenomBlocker[i].WaitOne();
+                            for (int k1 = 0; k1 < k; k1++)
+                            {
+                                pdfBlocker[i, k1].WaitOne();
+                                Gamma[i, k1] = (phi[k1] * pdf[i, k1]) / Gdenom[i];
+                                GammaKBlocker[i, k1].Set();
+                            }
+                        }
+                    }));
+
+
+                
+                //for (int i = 0; i < X.Rows; i++)
+                //{
+                //    for (int k1 = 0; k1 < k; k1++)
+                //    {
+                //        pdf[i, k1] = GaussianMV(X, i, dim, mu[k1], sigma[k1]);
+                //    }
+                //}
+
+                //for (int i = 0; i < X.Rows; i++) // denominator for Gamma
+                //{
+                //    double sum = 0;
+                //    for (int k1 = 0; k1 < k; k1++)
+                //    {
+                //        sum = sum + phi[k1] * pdf[i, k1];
+                //    }
+                //    Gdenom[i] = sum;
+                //}
+
+                //for (int i = 0; i < X.Rows; i++)
+                //{
+                //    for (int k1 = 0; k1 < k; k1++)
+                //    {
+                //        Gamma[i, k1] = (phi[k1] * pdf[i, k1]) / Gdenom[i];
+                //    }
+                //}
 
                 //-------------------end Expectation--------------------
+                #endregion
 
+                #region perform Maximization Step
                 //---------perform Maximization Step--------------------
                 //----------update phi--------------
                 for (int k1 = 0; k1 < k; k1++)
@@ -112,13 +186,40 @@ namespace GMM
                     double sum = 0;
                     for (int i = 0; i < X.Rows; i++)
                     {
+                        GammaKBlocker[i, k1].WaitOne();
                         sum += Gamma[i, k1];
                     }
                     phi[k1] = sum / (X.Rows);
+                    PhiBlocker[k].Set();
                 }
+                //for (int k1 = 0; k1 < k; k1++)
+                //{
+                //    double sum = 0;
+                //    for (int i = 0; i < X.Rows; i++)
+                //    {
+                //        sum += Gamma[i, k1];
+                //    }
+                //    phi[k1] = sum / (X.Rows);
+                //}
                 //---------------------------------
+                #endregion
 
+                #region update mu
                 //-------------update mu-----------
+                ManualResetEvent[,] MuNumberBlocker = new ManualResetEvent[k, dim];
+                ManualResetEvent[] MuDenomBlocker = new ManualResetEvent[k];
+                ManualResetEvent[,] MuBlocker = new ManualResetEvent[k, dim];
+
+                // Left off here. Need to do tasks.
+                for (int i = 0; i < k; i++)
+                {
+                    for (int j = 0; j < dim; j++)
+                    {
+                        MuNumberBlocker[i, j] = new ManualResetEvent(false);
+                        MuBlocker[i, j] = new ManualResetEvent(false);
+                    }
+                    MuDenomBlocker[i] = new ManualResetEvent(false);
+                }
                 double[,] MuNumer = new double[k, dim];
                 for (int k1 = 0; k1 < k; k1++)
                 {
@@ -126,10 +227,16 @@ namespace GMM
                     for (int i = 0; i < X.Rows; i++)
                     {
                         for (int m =0; m < dim; m++)
+                        {
+                            GammaKBlocker[i, k1].WaitOne();
                             sum[m] += Gamma[i, k1] * X[i, m];
+                        }
                     }
                     for (int m = 0; m < dim; m++)
+                    {
                         MuNumer[k1, m] = sum[m];
+                        MuNumberBlocker[k1, m].Set();
+                    }
                 }
 
                 double[] MuDenom = new double[k];
@@ -138,17 +245,26 @@ namespace GMM
                     double sum = 0;
                     for (int i = 0; i < X.Rows; i++)
                     {
+                        GammaKBlocker[i, k1].WaitOne();
                         sum += Gamma[i, k1];
                     }
                     MuDenom[k1] = sum;
+                    MuDenomBlocker[k1].Set();
                 }
                 for (int i = 0; i < k; i++)
                 {
+                    MuDenomBlocker[i].WaitOne();
                     for (int m = 0; m < dim; m++)
+                    {
+                        MuNumberBlocker[i, m].WaitOne();
                         mu[i][0, m] = MuNumer[i, m] / MuDenom[i];
+                        MuBlocker[k, m].Set();
+                    }
                 }
                 //-----------------------------------
+                #endregion
 
+                #region update sigma
                 //-------------update sigma----------
                 Matrix[] VarianceNumer = new Matrix[k];
                 for (int k1 = 0; k1 < k; k1++)
@@ -167,7 +283,13 @@ namespace GMM
                 for (int i = 0; i < k; i++)
                     sigma[i] = VarianceNumer[i] * (1 / MuDenom[i]);
                 //--------------end update Sigma--------
+                #endregion
 
+                foreach (Task t in taskList)
+                {
+                    if (t.Status == TaskStatus.Running)
+                        t.Wait();
+                }
                 //---------------end Maximization-------------------------------
             }
             var G = Gamma;
