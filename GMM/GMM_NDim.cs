@@ -52,6 +52,139 @@ namespace GMM
                 if (RList.Contains(rpos))
                     rpos = rand.Next(X.Rows);
                 for (int m = 0; m < dim; m++)
+                    mu[i][0, m] = X[rpos, m];
+            }
+
+            // set the variance of each cluster to be the overall variance
+            Matrix varianceOfData = ComputeCoVariance(X);
+            for (int i = 0; i < varianceOfData.Rows; i++)
+            {
+                for (int j = 0; j < varianceOfData.Columns; j++)
+                    varianceOfData[i, j] = varianceOfData[i, j];// Math.Sqrt(varianceOfData[i, j]);
+            }
+            for (int i = 0; i < k; i++)
+            {
+                sigma[i] = varianceOfData.Clone();
+            }
+
+            // set prior probablities of each cluster to be uniform
+            for (int i = 0; i < k; i++)
+            {
+                phi[i] = 1.0 / k;
+            }
+            //--------------------------end initialization-------------------------------------
+
+            // ---------------------------Expectation Maximization------------------------------
+            for (int n = 0; n < 1000; n++)
+            {
+                //---------perform Expectation step---------------------
+                for (int i = 0; i < X.Rows; i++)
+                {
+                    for (int k1 = 0; k1 < k; k1++)
+                    {
+                        pdf[i, k1] = GaussianMV(X, i, dim, mu[k1], sigma[k1]);
+                    }
+                }
+                double[] Gdenom = new double[X.Rows];
+                for (int i = 0; i < X.Rows; i++) // denominator for Gamma
+                {
+                    double sum = 0;
+                    for (int k1 = 0; k1 < k; k1++)
+                    {
+                        sum = sum + phi[k1] * pdf[i, k1];
+                    }
+                    Gdenom[i] = sum;
+                }
+
+                for (int i = 0; i < X.Rows; i++)
+                {
+                    for (int k1 = 0; k1 < k; k1++)
+                    {
+                        Gamma[i, k1] = (phi[k1] * pdf[i, k1]) / Gdenom[i];
+                    }
+                }
+
+                //-------------------end Expectation--------------------
+
+                //---------perform Maximization Step--------------------
+                //----------update phi--------------
+                for (int k1 = 0; k1 < k; k1++)
+                {
+                    double sum = 0;
+                    for (int i = 0; i < X.Rows; i++)
+                    {
+                        sum += Gamma[i, k1];
+                    }
+                    phi[k1] = sum / (X.Rows);
+                }
+                //---------------------------------
+
+                //-------------update mu-----------
+                double[,] MuNumer = new double[k, dim];
+                for (int k1 = 0; k1 < k; k1++)
+                {
+                    double[] sum = new double[dim];
+                    for (int i = 0; i < X.Rows; i++)
+                    {
+                        for (int m = 0; m < dim; m++)
+                            sum[m] += Gamma[i, k1] * X[i, m];
+                    }
+                    for (int m = 0; m < dim; m++)
+                        MuNumer[k1, m] = sum[m];
+                }
+
+                double[] MuDenom = new double[k];
+                for (int k1 = 0; k1 < k; k1++)
+                {
+                    double sum = 0;
+                    for (int i = 0; i < X.Rows; i++)
+                    {
+                        sum += Gamma[i, k1];
+                    }
+                    MuDenom[k1] = sum;
+                }
+                for (int i = 0; i < k; i++)
+                {
+                    for (int m = 0; m < dim; m++)
+                        mu[i][0, m] = MuNumer[i, m] / MuDenom[i];
+                }
+                //-----------------------------------
+
+                //-------------update sigma----------
+                Matrix[] VarianceNumer = new Matrix[k];
+                for (int k1 = 0; k1 < k; k1++)
+                {
+                    Matrix sum = new Matrix(dim, dim);
+
+                    for (int i = 0; i < X.Rows; i++)
+                    {
+                        Matrix xi = new Matrix(1, dim);
+                        for (int m = 0; m < dim; m++)
+                            xi[0, m] = X[i, m];
+                        sum += ((xi - mu[k1]).Transpose() * (xi - mu[k1])) * Gamma[i, k1];
+                    }
+                    VarianceNumer[k1] = sum;
+                }
+                for (int i = 0; i < k; i++)
+                    sigma[i] = VarianceNumer[i] * (1 / MuDenom[i]);
+                //--------------end update Sigma--------
+
+                //---------------end Maximization-------------------------------
+            }
+            var G = Gamma;
+        }
+
+        public void ComputeGMM_ND_Parallel()
+        {
+            Random rand = new Random();
+            // ----------Initialization step - randomly select k data poits to act as means
+            List<int> RList = new List<int>();
+            for (int i = 0; i < k; i++)
+            {
+                int rpos = rand.Next(X.Rows);
+                if (RList.Contains(rpos))
+                    rpos = rand.Next(X.Rows);
+                for (int m = 0; m < dim; m++)
                     mu[i][0, m] = X[rpos,m];
             }
 
@@ -83,6 +216,7 @@ namespace GMM
                 ManualResetEvent[] PhiBlocker = new ManualResetEvent[X.Rows];
 
                 Parallel.For(0, X.Rows, (x) =>
+                //for (int x = 0; x < X.Rows; x++)
                 {
                     for (int y = 0; y < k; y++)
                     {
@@ -148,7 +282,7 @@ namespace GMM
                     }));
 
 
-                
+
                 //for (int i = 0; i < X.Rows; i++)
                 //{
                 //    for (int k1 = 0; k1 < k; k1++)
@@ -181,17 +315,22 @@ namespace GMM
                 #region perform Maximization Step
                 //---------perform Maximization Step--------------------
                 //----------update phi--------------
-                for (int k1 = 0; k1 < k; k1++)
-                {
-                    double sum = 0;
-                    for (int i = 0; i < X.Rows; i++)
+                taskList.Add(Task.Factory.StartNew(
+                    () =>
                     {
-                        GammaKBlocker[i, k1].WaitOne();
-                        sum += Gamma[i, k1];
-                    }
-                    phi[k1] = sum / (X.Rows);
-                    PhiBlocker[k].Set();
-                }
+                        // Make Parallel.for
+                        for (int k1 = 0; k1 < k; k1++)
+                        {
+                            double sum = 0;
+                            for (int i = 0; i < X.Rows; i++)
+                            {
+                                GammaKBlocker[i, k1].WaitOne();
+                                sum += Gamma[i, k1];
+                            }
+                            phi[k1] = sum / (X.Rows);
+                            PhiBlocker[k].Set();
+                        }
+                    }));
                 //for (int k1 = 0; k1 < k; k1++)
                 //{
                 //    double sum = 0;
@@ -210,85 +349,139 @@ namespace GMM
                 ManualResetEvent[] MuDenomBlocker = new ManualResetEvent[k];
                 ManualResetEvent[,] MuBlocker = new ManualResetEvent[k, dim];
 
-                // Left off here. Need to do tasks.
-                for (int i = 0; i < k; i++)
+                Parallel.For(0, k, (x) =>
                 {
-                    for (int j = 0; j < dim; j++)
+                    for (int y = 0; y < dim; y++)
                     {
-                        MuNumberBlocker[i, j] = new ManualResetEvent(false);
-                        MuBlocker[i, j] = new ManualResetEvent(false);
+                        MuNumberBlocker[x, y] = new ManualResetEvent(false);
+                        MuBlocker[x, y] = new ManualResetEvent(false);
                     }
-                    MuDenomBlocker[i] = new ManualResetEvent(false);
-                }
-                double[,] MuNumer = new double[k, dim];
-                for (int k1 = 0; k1 < k; k1++)
-                {
-                    double[] sum = new double[dim];
-                    for (int i = 0; i < X.Rows; i++)
+                    MuDenomBlocker[x] = new ManualResetEvent(false);
+                });
+
+                taskList.Add(Task.Factory.StartNew(
+                    () =>
                     {
-                        for (int m =0; m < dim; m++)
+                        // Make Parallel.for
+                        for (int i = 0; i < k; i++)
                         {
-                            GammaKBlocker[i, k1].WaitOne();
-                            sum[m] += Gamma[i, k1] * X[i, m];
+                            for (int j = 0; j < dim; j++)
+                            {
+                                MuNumberBlocker[i, j] = new ManualResetEvent(false);
+                                MuBlocker[i, j] = new ManualResetEvent(false);
+                            }
+                            MuDenomBlocker[i] = new ManualResetEvent(false);
                         }
-                    }
-                    for (int m = 0; m < dim; m++)
+                    }));
+
+                double[,] MuNumer = new double[k, dim];
+                taskList.Add(Task.Factory.StartNew(
+                    () =>
                     {
-                        MuNumer[k1, m] = sum[m];
-                        MuNumberBlocker[k1, m].Set();
-                    }
-                }
+                        // Make Parallel.for
+                        for (int k1 = 0; k1 < k; k1++)
+                        {
+                            double[] sum = new double[dim];
+                            for (int i = 0; i < X.Rows; i++)
+                            {
+                                for (int m = 0; m < dim; m++)
+                                {
+                                    GammaKBlocker[i, k1].WaitOne();
+                                    sum[m] += Gamma[i, k1] * X[i, m];
+                                }
+                            }
+                            for (int m = 0; m < dim; m++)
+                            {
+                                MuNumer[k1, m] = sum[m];
+                                MuNumberBlocker[k1, m].Set();
+                            }
+                        }
+                    }));
+
+                object olock = new object();
 
                 double[] MuDenom = new double[k];
-                for (int k1 = 0; k1 < k; k1++)
-                {
-                    double sum = 0;
-                    for (int i = 0; i < X.Rows; i++)
+                taskList.Add(Task.Factory.StartNew(
+                    () =>
                     {
-                        GammaKBlocker[i, k1].WaitOne();
-                        sum += Gamma[i, k1];
-                    }
-                    MuDenom[k1] = sum;
-                    MuDenomBlocker[k1].Set();
-                }
-                for (int i = 0; i < k; i++)
-                {
-                    MuDenomBlocker[i].WaitOne();
-                    for (int m = 0; m < dim; m++)
+                        // Make Parallel.for
+                        for (int k1 = 0; k1 < k; k1++)
+                        {
+                            double sum = 0;
+                            for (int i = 0; i < X.Rows; i++)
+                            {
+                                GammaKBlocker[i, k1].WaitOne();
+                                sum += Gamma[i, k1];
+                            }
+                            MuDenom[k1] = sum;
+                            MuDenomBlocker[k1].Set();
+                        }
+                    }));
+                taskList.Add(Task.Factory.StartNew(
+                    () =>
                     {
-                        MuNumberBlocker[i, m].WaitOne();
-                        mu[i][0, m] = MuNumer[i, m] / MuDenom[i];
-                        MuBlocker[k, m].Set();
-                    }
-                }
+                        // Make Parallel.for
+                        string test = "";
+                        if (n%5 == 0)
+                            test = "wait here";
+                        for (int i = 0; i < k; i++)
+                        {
+                            MuDenomBlocker[i].WaitOne();
+                            for (int m = 0; m < dim; m++)
+                            {
+                                lock (olock)
+                                {
+
+                                }
+                                MuNumberBlocker[i, m].WaitOne();
+                                mu[i][0, m] = MuNumer[i, m] / MuDenom[i];
+                                MuBlocker[i, m].Set();
+                            }
+                        }
+                    }));
                 //-----------------------------------
                 #endregion
 
                 #region update sigma
                 //-------------update sigma----------
                 Matrix[] VarianceNumer = new Matrix[k];
-                for (int k1 = 0; k1 < k; k1++)
-                {
-                    Matrix sum = new Matrix(dim, dim);
-
-                    for (int i = 0; i < X.Rows; i++)
+                taskList.Add(Task.Factory.StartNew(
+                    () =>
                     {
-                        Matrix xi = new Matrix(1, dim);
-                        for (int m = 0; m < dim; m++)
-                            xi[0, m] = X[i, m]; 
-                        sum += ((xi - mu[k1]).Transpose() * (xi - mu[k1])) * Gamma[i, k1];
-                    }
-                    VarianceNumer[k1] = sum;
-                }
-                for (int i = 0; i < k; i++)
-                    sigma[i] = VarianceNumer[i] * (1 / MuDenom[i]);
+                        // Make Parallel.for
+                        for (int k1 = 0; k1 < k; k1++)
+                        {
+                            Matrix sum = new Matrix(dim, dim);
+
+                            for (int i = 0; i < X.Rows; i++)
+                            {
+                                GammaKBlocker[i, k1].WaitOne();
+                                Matrix xi = new Matrix(1, dim);
+                                for (int m = 0; m < dim; m++)
+                                {
+                                    xi[0, m] = X[i, m];
+                                    MuBlocker[k1, m].WaitOne();
+                                }
+
+                                sum += ((xi - mu[k1]).Transpose() * (xi - mu[k1])) * Gamma[i, k1];
+                            }
+                            VarianceNumer[k1] = sum;
+                        }
+                        for (int i = 0; i < k; i++)
+                            sigma[i] = VarianceNumer[i] * (1 / MuDenom[i]);
+                    }));
+                
                 //--------------end update Sigma--------
                 #endregion
 
                 foreach (Task t in taskList)
                 {
                     if (t.Status == TaskStatus.Running)
+                    {
                         t.Wait();
+                        //t.Dispose();
+                    }
+
                 }
                 //---------------end Maximization-------------------------------
             }

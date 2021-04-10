@@ -37,6 +37,7 @@
             this.txtNumClusters = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
             this.btnTennisGMM = new System.Windows.Forms.Button();
+            this.btnTennisSwarm = new System.Windows.Forms.Button();
             ((System.ComponentModel.ISupportInitialize)(this.pic1)).BeginInit();
             this.SuspendLayout();
             // 
@@ -130,6 +131,16 @@
             this.btnTennisGMM.UseVisualStyleBackColor = true;
             this.btnTennisGMM.Click += new System.EventHandler(this.btnTennisGMM_Click);
             // 
+            // btnTennisSwarm
+            // 
+            this.btnTennisSwarm.Location = new System.Drawing.Point(30, 467);
+            this.btnTennisSwarm.Margin = new System.Windows.Forms.Padding(2);
+            this.btnTennisSwarm.Name = "btnTennisSwarm";
+            this.btnTennisSwarm.Size = new System.Drawing.Size(174, 31);
+            this.btnTennisSwarm.TabIndex = 6;
+            this.btnTennisSwarm.Text = "GMM Tennis Swarm";
+            this.btnTennisSwarm.UseVisualStyleBackColor = true;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -137,6 +148,7 @@
             this.ClientSize = new System.Drawing.Size(1402, 798);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.txtNumClusters);
+            this.Controls.Add(this.btnTennisSwarm);
             this.Controls.Add(this.btnTennisGMM);
             this.Controls.Add(this.btnGMMND);
             this.Controls.Add(this.pic1);
@@ -164,6 +176,7 @@
         private System.Windows.Forms.TextBox txtNumClusters;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Button btnTennisGMM;
+        private System.Windows.Forms.Button btnTennisSwarm;
     }
 }
 

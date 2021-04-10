@@ -429,6 +429,7 @@ namespace GMM
                 Matrix imgVecMatrix = new Matrix(imgVectorC);
                 GMM_NDim tennisGMM = new GMM_NDim(k, dim, imgVecMatrix);
                 tennisGMM.ComputeGMM_ND();
+                //tennisGMM.ComputeGMM_ND_Parallel();
 
                 // determine class membership i.e., which point belongs to which cluster
                 //PList = new List<MyPoint>();//delete
@@ -451,45 +452,68 @@ namespace GMM
                     //MyPoint pt = new MyPoint { ClusterId = cnum, X = X[i, 0], Y = X[i, 1] }; //delete
                     //PList.Add(pt); //delete
                 }
+                int[,] imgClass3d = new int[picTennis.Height, picTennis.Width]; 
+                Buffer.BlockCopy(imgClass, 0, imgClass3d, 0, 4 * imgClass.Length); // 4 bytes in an int
                 //MyImageProc.DrawClusters(pic1, PList, 1, k); //delete
                 int index = int.MaxValue;
                 int[] counts = new int[k];
+                //for (int i = 0; i < k; i++)
+                //{
+                //    counts[i] = imgClass.Where(x => x == i).ToArray().Count(); 
+                //}
+                //int smallestGroup = Array.IndexOf(counts, counts.Min());
+
+                //int iterator = 0;
+
+                Bitmap myBit = new Bitmap(picTennis.Width, picTennis.Height);
+                Color[] colors = new Color[k];
+                Random r1 = new Random(1);
                 for (int i = 0; i < k; i++)
                 {
-                    counts[i] = imgClass.Where(x => x == i).ToArray().Count(); 
+                    byte R = (byte)r1.Next(255);
+                    byte G = (byte)r1.Next(255);
+                    byte B = (byte)r1.Next(255);
+                    colors[i] = Color.FromArgb(R, G, B);
+
                 }
-                int smallestGroup = Array.IndexOf(counts, counts.Min());
-
-                int iterator = 0;
-
-                unsafe
-                {
-                    BitmapData bitmapData = picTennis.LockBits(new Rectangle(0, 0, picTennis.Width, picTennis.Height), ImageLockMode.ReadWrite, picTennis.PixelFormat);
-                    int bytesPerPixel = System.Drawing.Bitmap.GetPixelFormatSize(picTennis.PixelFormat);
-                    int height = picTennis.Height;
-                    int widthinBytes = bitmapData.Width * bytesPerPixel;
-                    byte* ptr = (byte*)bitmapData.Scan0; // point to the first pixel
-                    for (int y = 0; y < height; y++)
+                int pixelNum = 0;
+                int classnum = 0;
+                for (int i = 0; i < picTennis.Height; i++)
+                    for(int j = 0; j < picTennis.Width; j++)
                     {
-                        byte* currentLine = ptr + (y * bitmapData.Stride);
-                        for (int x = 0; x < widthinBytes; x = x + bytesPerPixel)
-                        {
-                            if (imgClass[iterator] != smallestGroup)
-                            {
-                                int blue = currentLine[x];
-                                int green = currentLine[x + 1];
-                                int red = currentLine[x + 2];
-                                int gray1 = (int)((0.299 * red) + 0.587 * green + 0.114 * blue);
-                                currentLine[x] = (byte)gray1;
-                                currentLine[x + 1] = (byte)gray1;
-                                currentLine[x + 2] = (byte)gray1;
-                                iterator++;
-                            }
-                        }
+                        pixelNum = i * picTennis.Height + j;
+                        //classnum = imgClass[pixelNum];
+                        classnum = imgClass3d[i, j];
+                        myBit.SetPixel(j, i, colors[classnum]);
                     }
-                    picTennis.UnlockBits(bitmapData);
-                } // end of unsafe
-                pic1.Image = picTennis;
+                //unsafe
+                //{
+                //    BitmapData bitmapData = picTennis.LockBits(new Rectangle(0, 0, picTennis.Width, picTennis.Height), ImageLockMode.ReadWrite, picTennis.PixelFormat);
+                //    int bytesPerPixel = System.Drawing.Bitmap.GetPixelFormatSize(picTennis.PixelFormat);
+                //    int height = picTennis.Height;
+                //    int widthinBytes = bitmapData.Width * bytesPerPixel;
+                //    byte* ptr = (byte*)bitmapData.Scan0; // point to the first pixel
+                //    for (int y = 0; y < height; y++)
+                //    {
+                //        byte* currentLine = ptr + (y * bitmapData.Stride);
+                //        for (int x = 0; x < widthinBytes; x = x + bytesPerPixel)
+                //        {
+                //            if (imgClass[iterator] != smallestGroup)
+                //            {
+                //                int blue = currentLine[x];
+                //                int green = currentLine[x + 1];
+                //                int red = currentLine[x + 2];
+                //                int gray1 = (int)((0.299 * red) + 0.587 * green + 0.114 * blue);
+                //                currentLine[x] = (byte)gray1;
+                //                currentLine[x + 1] = (byte)gray1;
+                //                currentLine[x + 2] = (byte)gray1;
+                //                iterator++;
+                //            }
+                //        }
+                //    }
+                //    picTennis.UnlockBits(bitmapData);
+                //} // end of unsafe
+                pic1.Image = myBit;
                 pic1.Refresh();
                 #region CommentedCode
                 //unsafe
