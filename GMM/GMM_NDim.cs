@@ -18,6 +18,10 @@ namespace GMM
         double[,] pdf = null;
         public double[,] Gamma = null;
         double[] phi = null;
+
+
+        Matrix varianceOfData;
+
         public GMM_NDim(int k, int dim, Matrix x)
         {
             this.k = k;
@@ -41,38 +45,13 @@ namespace GMM
             phi = new double[k];    // prior probabilities for each cluster
         }
 
+
+
         public void ComputeGMM_ND()
         {
-            Random rand = new Random();
-            // ----------Initialization step - randomly select k data poits to act as means
-            List<int> RList = new List<int>();
-            for (int i = 0; i < k; i++)
-            {
-                int rpos = rand.Next(X.Rows);
-                if (RList.Contains(rpos))
-                    rpos = rand.Next(X.Rows);
-                for (int m = 0; m < dim; m++)
-                    mu[i][0, m] = X[rpos, m];
-            }
 
-            // set the variance of each cluster to be the overall variance
-            Matrix varianceOfData = ComputeCoVariance(X);
-            for (int i = 0; i < varianceOfData.Rows; i++)
-            {
-                for (int j = 0; j < varianceOfData.Columns; j++)
-                    varianceOfData[i, j] = varianceOfData[i, j];// Math.Sqrt(varianceOfData[i, j]);
-            }
-            for (int i = 0; i < k; i++)
-            {
-                sigma[i] = varianceOfData.Clone();
-            }
-
-            // set prior probablities of each cluster to be uniform
-            for (int i = 0; i < k; i++)
-            {
-                phi[i] = 1.0 / k;
-            }
-            //--------------------------end initialization-------------------------------------
+            // ---------------------------Initialization Step------------------------------
+            Initialize();
 
             // ---------------------------Expectation Maximization------------------------------
             for (int n = 0; n < 1000; n++)
@@ -174,7 +153,7 @@ namespace GMM
             var G = Gamma;
         }
 
-        public void ComputeGMM_ND_Parallel()
+        private void Initialize()
         {
             Random rand = new Random();
             // ----------Initialization step - randomly select k data poits to act as means
@@ -185,19 +164,19 @@ namespace GMM
                 if (RList.Contains(rpos))
                     rpos = rand.Next(X.Rows);
                 for (int m = 0; m < dim; m++)
-                    mu[i][0, m] = X[rpos,m];
+                    mu[i][0, m] = X[rpos, m];
             }
 
             // set the variance of each cluster to be the overall variance
-            Matrix varianceOfData = ComputeCoVariance(X);
+            varianceOfData = ComputeCoVariance(X);
             for (int i = 0; i < varianceOfData.Rows; i++)
             {
                 for (int j = 0; j < varianceOfData.Columns; j++)
-                    varianceOfData[i, j] = varianceOfData[i, j] ;// Math.Sqrt(varianceOfData[i, j]);
+                    varianceOfData[i, j] = varianceOfData[i, j];// Math.Sqrt(varianceOfData[i, j]);
             }
             for (int i = 0; i < k; i++)
             {
-                sigma[i] = varianceOfData.Clone();  
+                sigma[i] = varianceOfData.Clone();
             }
 
             // set prior probablities of each cluster to be uniform
@@ -206,6 +185,41 @@ namespace GMM
                 phi[i] = 1.0 / k;
             }
             //--------------------------end initialization-------------------------------------
+        }
+
+        public void ComputeGMM_ND_Parallel()
+        {
+            Task init = Task.Factory.StartNew(() => Initialize());
+            //Random rand = new Random();
+            //// ----------Initialization step - randomly select k data poits to act as means
+            //List<int> RList = new List<int>();
+            //for (int i = 0; i < k; i++)
+            //{
+            //    int rpos = rand.Next(X.Rows);
+            //    if (RList.Contains(rpos))
+            //        rpos = rand.Next(X.Rows);
+            //    for (int m = 0; m < dim; m++)
+            //        mu[i][0, m] = X[rpos,m];
+            //}
+
+            //// set the variance of each cluster to be the overall variance
+            //Matrix varianceOfData = ComputeCoVariance(X);
+            //for (int i = 0; i < varianceOfData.Rows; i++)
+            //{
+            //    for (int j = 0; j < varianceOfData.Columns; j++)
+            //        varianceOfData[i, j] = varianceOfData[i, j] ;// Math.Sqrt(varianceOfData[i, j]);
+            //}
+            //for (int i = 0; i < k; i++)
+            //{
+            //    sigma[i] = varianceOfData.Clone();  
+            //}
+
+            //// set prior probablities of each cluster to be uniform
+            //for (int i = 0; i < k; i++)
+            //{
+            //    phi[i] = 1.0 / k;
+            //}
+            ////--------------------------end initialization-------------------------------------
 
             // ---------------------------Expectation Maximization------------------------------
             for (int n = 0; n < 1000; n++)
@@ -229,7 +243,8 @@ namespace GMM
                 });
 
                 List<Task> taskList = new List<Task>();
-
+                if(init.Status == TaskStatus.Running)
+                    init.Wait();
                 #region perform Expectation step
                 //---------perform Expectation step---------------------
                 taskList.Add(Task.Factory.StartNew(

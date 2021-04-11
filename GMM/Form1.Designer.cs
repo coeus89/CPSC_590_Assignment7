@@ -140,6 +140,7 @@
             this.btnTennisSwarm.TabIndex = 6;
             this.btnTennisSwarm.Text = "GMM Tennis Swarm";
             this.btnTennisSwarm.UseVisualStyleBackColor = true;
+            this.btnTennisSwarm.Click += new System.EventHandler(this.btnTennisSwarm_Click);
             // 
             // Form1
             // 

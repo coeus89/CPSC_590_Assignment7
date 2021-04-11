@@ -192,6 +192,26 @@ namespace GMM
             return sum / data.Length;
         }
 
+        public int[] computeSilhouette(int[] mu, Bitmap tennisBitmap, int[,] imgClass3d)
+        {
+            List<Point>[] classPoints = new List<Point>[mu.Length];
+            List<Point> allPoints = new List<Point>();
+            for(int i = 0; i < mu.Length; i++)
+            {
+                classPoints[i] = new List<Point>();
+            }
+            
+            for(int i = 0; i < tennisBitmap.Height; i++)
+                for (int j = 0; j < tennisBitmap.Width; j++)
+                {
+                    Point p1 = new Point(j, i);
+                    List<Point> plist = classPoints[imgClass3d[i, j]];
+                    plist.Add(p1);
+                    allPoints.Add(p1);
+                }
+            double intraClusterMeanX = (from p in classPoints[0] select p.X).ToArray().Average();
+        }
+
         public double Gaussian(double num, double mean, double stddev)  // 1-D gaussian
         {
             double res = (1 / (stddev * Math.Sqrt(2.0 * Math.PI))) * 
@@ -549,6 +569,18 @@ namespace GMM
                 //    picTennis.UnlockBits(bitmapData);
                 //}
                 #endregion
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message);
+            }
+        }
+
+        private void btnTennisSwarm_Click(object sender, EventArgs e)
+        {
+            try
+            {
+
             }
             catch (Exception ex)
             {
