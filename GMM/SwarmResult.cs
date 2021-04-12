@@ -2,22 +2,27 @@
 
 namespace GMM
 {
-    public class SwarmResult : IComparable<SwarmResult>
+    public class SwarmResult : IComparable<SwarmResult>, ICloneable
     {
         public int SwarmId { get; set; }
-        public double X { get; set; }
-        public double Y { get; set; }
-        public double FunctionValue { get; set; }
-        public override string ToString()
+        public double silhouette { get; set; }
+        public GMM_NDim MyGMM {get;set;}
+
+        public object Clone()
         {
-            return "SwarmId:" + SwarmId.ToString() +
-                   " X=" + X.ToString() +
-                   " Y=" + Y.ToString() +
-                   " Function Value=" + FunctionValue.ToString();
+            var res = new SwarmResult
+            {
+                MyGMM = (GMM_NDim)this.MyGMM.Clone(),
+                SwarmId = this.SwarmId,
+                silhouette = this.silhouette
+            };
+            return res;
         }
+
+        // public double FunctionValue { get; set; }
         public int CompareTo(SwarmResult other)
         {
-            return this.FunctionValue.CompareTo(other.FunctionValue);
+            return (-1)*this.silhouette.CompareTo(other.silhouette); // I want the largest first
         }
 
     }

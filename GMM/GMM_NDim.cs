@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace GMM
 {
-    class GMM_NDim
+    public class GMM_NDim : ICloneable
     {
         public Matrix X { get; set; }
         int k;  // number of clusters or mixture components
@@ -45,7 +45,10 @@ namespace GMM
             phi = new double[k];    // prior probabilities for each cluster
         }
 
+        public GMM_NDim()
+        {
 
+        }
 
         public void ComputeGMM_ND()
         {
@@ -153,7 +156,113 @@ namespace GMM
             var G = Gamma;
         }
 
-        private void Initialize()
+        public void ComputeGMM_ND_Swarm()
+        {
+
+            // ---------------------------Initialization Step------------------------------
+            //Initialize(); External now
+
+            // ---------------------------Expectation Maximization------------------------------
+            for (int n = 0; n < 50; n++)
+            {
+                //---------perform Expectation step---------------------
+                for (int i = 0; i < X.Rows; i++)
+                {
+                    for (int k1 = 0; k1 < k; k1++)
+                    {
+                        pdf[i, k1] = GaussianMV(X, i, dim, mu[k1], sigma[k1]);
+                    }
+                }
+                double[] Gdenom = new double[X.Rows];
+                for (int i = 0; i < X.Rows; i++) // denominator for Gamma
+                {
+                    double sum = 0;
+                    for (int k1 = 0; k1 < k; k1++)
+                    {
+                        sum = sum + phi[k1] * pdf[i, k1];
+                    }
+                    Gdenom[i] = sum;
+                }
+
+                for (int i = 0; i < X.Rows; i++)
+                {
+                    for (int k1 = 0; k1 < k; k1++)
+                    {
+                        Gamma[i, k1] = (phi[k1] * pdf[i, k1]) / Gdenom[i];
+                    }
+                }
+
+                //-------------------end Expectation--------------------
+
+                //---------perform Maximization Step--------------------
+                //----------update phi--------------
+                for (int k1 = 0; k1 < k; k1++)
+                {
+                    double sum = 0;
+                    for (int i = 0; i < X.Rows; i++)
+                    {
+                        sum += Gamma[i, k1];
+                    }
+                    phi[k1] = sum / (X.Rows);
+                }
+                //---------------------------------
+
+                //-------------update mu-----------
+                double[,] MuNumer = new double[k, dim];
+                for (int k1 = 0; k1 < k; k1++)
+                {
+                    double[] sum = new double[dim];
+                    for (int i = 0; i < X.Rows; i++)
+                    {
+                        for (int m = 0; m < dim; m++)
+                            sum[m] += Gamma[i, k1] * X[i, m];
+                    }
+                    for (int m = 0; m < dim; m++)
+                        MuNumer[k1, m] = sum[m];
+                }
+
+                double[] MuDenom = new double[k];
+                for (int k1 = 0; k1 < k; k1++)
+                {
+                    double sum = 0;
+                    for (int i = 0; i < X.Rows; i++)
+                    {
+                        sum += Gamma[i, k1];
+                    }
+                    MuDenom[k1] = sum;
+                }
+                for (int i = 0; i < k; i++)
+                {
+                    for (int m = 0; m < dim; m++)
+                        mu[i][0, m] = MuNumer[i, m] / MuDenom[i];
+                }
+                //-----------------------------------
+
+                //-------------update sigma----------
+                Matrix[] VarianceNumer = new Matrix[k];
+                for (int k1 = 0; k1 < k; k1++)
+                {
+                    Matrix sum = new Matrix(dim, dim);
+
+                    for (int i = 0; i < X.Rows; i++)
+                    {
+                        Matrix xi = new Matrix(1, dim);
+                        for (int m = 0; m < dim; m++)
+                            xi[0, m] = X[i, m];
+                        sum += ((xi - mu[k1]).Transpose() * (xi - mu[k1])) * Gamma[i, k1];
+                    }
+                    VarianceNumer[k1] = sum;
+                }
+                for (int i = 0; i < k; i++)
+                    sigma[i] = VarianceNumer[i] * (1 / MuDenom[i]);
+                //--------------end update Sigma--------
+
+                //---------------end Maximization-------------------------------
+            }
+            var G = Gamma;
+        }
+
+        public void Initialize()
         {
             Random rand = new Random();
             // ----------Initialization step - randomly select k data poits to act as means
@@ -535,6 +644,31 @@ namespace GMM
             var exp2 = exp[0, 0] * -0.5;
             double res = 1 / (Math.Sqrt(cov.Determinant) * Math.Sqrt(Math.Pow(2.0 * Math.PI, dim))) *
                 Math.Exp(exp2);
+            return res;
+        }
+
+        public object Clone()
+        {
+            var res = new GMM_NDim
+            {
+                dim = this.dim,
+                k = this.k,
+                X = this.X.Clone(),
+                mu = new Matrix[this.mu.Length],
+                sigma = new Matrix[this.sigma.Length],
+                pdf = (double[,])this.pdf.Clone(),
+                Gamma = (double[,])this.Gamma.Clone(),
+                phi = (double[])this.phi.Clone()
+            };
+            for (int i = 0; i < this.mu.Length; i++)
+            {
+                mu[i] = this.mu[i].Clone();
+            }
+            for (int i = 0; i < this.sigma.Length; i++)
+            {
+                sigma[i] = this.sigma[i].Clone();
+            }
+
             return res;
         }
     }

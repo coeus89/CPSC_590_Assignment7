@@ -192,24 +192,63 @@ namespace GMM
             return sum / data.Length;
         }
 
-        public int[] computeSilhouette(int[] mu, Bitmap tennisBitmap, int[,] imgClass3d)
+        public double[] computeSilhouette(int numClasses, Bitmap tennisBitmap, int[,] imgClass3d)
         {
-            List<Point>[] classPoints = new List<Point>[mu.Length];
-            List<Point> allPoints = new List<Point>();
-            for(int i = 0; i < mu.Length; i++)
+            List<MyPoint>[] classPoints = new List<MyPoint>[numClasses];
+            List<MyPoint> allPoints = new List<MyPoint>();
+            for(int i = 0; i < numClasses; i++)
             {
-                classPoints[i] = new List<Point>();
+                classPoints[i] = new List<MyPoint>();
             }
             
+            // put all points into lists
             for(int i = 0; i < tennisBitmap.Height; i++)
                 for (int j = 0; j < tennisBitmap.Width; j++)
                 {
-                    Point p1 = new Point(j, i);
-                    List<Point> plist = classPoints[imgClass3d[i, j]];
+                    MyPoint p1 = new MyPoint(imgClass3d[i, j], j, i);
+                    List<MyPoint> plist = classPoints[imgClass3d[i, j]];
                     plist.Add(p1);
                     allPoints.Add(p1);
                 }
-            double intraClusterMeanX = (from p in classPoints[0] select p.X).ToArray().Average();
+            double[] avgIntraDist = new double[numClasses];
+            double[] avgInterDist = new double[numClasses];
+            double[] silhouette = new double[numClasses];
+            MyPoint[] ClusterMeans = new MyPoint[numClasses];
+            for (int k = 0; k < numClasses; k++)
+            {
+                // intra cluster means
+                MyPoint p2 = new MyPoint();
+                p2.X = (int)(from p in classPoints[k] select p.X).ToArray().Average();
+                p2.Y = (int)(from p in classPoints[k] select p.Y).ToArray().Average();
+                p2.ClusterId = k;
+                ClusterMeans[k] = p2;
+            }
+
+            // cluster distance
+            for (int l = 0; l < classPoints.Length; l++)
+            {
+                // intra cluster distance
+                int[] intraX = (from p in classPoints[l] select (int)p.X).ToArray();
+                int[] intraY = (from p in classPoints[l] select (int)p.Y).ToArray();
+                for (int i = 0; i < intraX.Length; i++)
+                {
+                    avgIntraDist[l] += Math.Sqrt(Math.Pow(ClusterMeans[l].X - intraX[i], 2) + Math.Pow(ClusterMeans[l].Y - intraY[i], 2));
+                }
+                avgIntraDist[l] = avgIntraDist[l] / intraX.Length;
+
+                // inter cluster distance
+                int[] interX = (from p in allPoints where p.ClusterId != l select (int)p.X).ToArray();
+                int[] interY = (from p in allPoints where p.ClusterId != l select (int)p.Y).ToArray();
+                for (int i = 0; i < interX.Length; i++)
+                {
+                    avgInterDist[l] += Math.Sqrt(Math.Pow(ClusterMeans[l].X - interX[i], 2) + Math.Pow(ClusterMeans[l].Y - interY[i], 2));
+                }
+                avgInterDist[l] = avgInterDist[l] / interX.Length;
+
+                //Calc silhouette
+                silhouette[l] = (avgInterDist[l] - avgIntraDist[l]) / Math.Max(avgInterDist[l], avgIntraDist[l]);
+            }
+            return silhouette;
         }
 
         public double Gaussian(double num, double mean, double stddev)  // 1-D gaussian
@@ -433,7 +472,7 @@ namespace GMM
                 }
                 Color c1 = new Color();
                 //Parallel.For(0, picTennis.Height, (i) =>
-                for(int i = 0; i < picTennis.Height;i++)
+                for (int i = 0; i < picTennis.Height; i++)
                 {
                     for (int j = 0; j < picTennis.Width; j++)
                     {
@@ -452,60 +491,14 @@ namespace GMM
                 //tennisGMM.ComputeGMM_ND_Parallel();
 
                 // determine class membership i.e., which point belongs to which cluster
-                //PList = new List<MyPoint>();//delete
-                int[] imgClass = new int[datasize];
-                for (int i = 0; i < imgVecMatrix.Rows; i++)
-                {
-                    // Gamma matrix has the probabilities for a data point for its membership in each cluster
-                    double[] probabs = new double[k];
-                    int cnum = 0;
-                    double maxprobab = tennisGMM.Gamma[i, 0];
-                    for (int m = 0; m < k; m++)
-                    {
-                        if (tennisGMM.Gamma[i, m] > maxprobab)
-                        {
-                            cnum = m;  // data i belongs to cluster m
-                            maxprobab = tennisGMM.Gamma[i, m];
-                        }
-                    }
-                    imgClass[i] = cnum;
-                    //MyPoint pt = new MyPoint { ClusterId = cnum, X = X[i, 0], Y = X[i, 1] }; //delete
-                    //PList.Add(pt); //delete
-                }
-                int[,] imgClass3d = new int[picTennis.Height, picTennis.Width]; 
-                Buffer.BlockCopy(imgClass, 0, imgClass3d, 0, 4 * imgClass.Length); // 4 bytes in an int
+                int[,] imgClass3d = new int[picTennis.Height, picTennis.Width];
+                AssignPicturePointClasses(k, datasize, imgVecMatrix, tennisGMM, imgClass3d);
                 //MyImageProc.DrawClusters(pic1, PList, 1, k); //delete
-                int index = int.MaxValue;
-                int[] counts = new int[k];
-                //for (int i = 0; i < k; i++)
-                //{
-                //    counts[i] = imgClass.Where(x => x == i).ToArray().Count(); 
-                //}
-                //int smallestGroup = Array.IndexOf(counts, counts.Min());
-
-                //int iterator = 0;
 
                 Bitmap myBit = new Bitmap(picTennis.Width, picTennis.Height);
-                Color[] colors = new Color[k];
-                Random r1 = new Random(1);
-                for (int i = 0; i < k; i++)
-                {
-                    byte R = (byte)r1.Next(255);
-                    byte G = (byte)r1.Next(255);
-                    byte B = (byte)r1.Next(255);
-                    colors[i] = Color.FromArgb(R, G, B);
-
-                }
-                int pixelNum = 0;
-                int classnum = 0;
-                for (int i = 0; i < picTennis.Height; i++)
-                    for(int j = 0; j < picTennis.Width; j++)
-                    {
-                        pixelNum = i * picTennis.Height + j;
-                        //classnum = imgClass[pixelNum];
-                        classnum = imgClass3d[i, j];
-                        myBit.SetPixel(j, i, colors[classnum]);
-                    }
+                ColorPictureByCluster(k, picTennis, imgClass3d, myBit);
+                double[] silhouette = computeSilhouette(k, picTennis, imgClass3d);
+                #region commented code
                 //unsafe
                 //{
                 //    BitmapData bitmapData = picTennis.LockBits(new Rectangle(0, 0, picTennis.Width, picTennis.Height), ImageLockMode.ReadWrite, picTennis.PixelFormat);
@@ -533,6 +526,7 @@ namespace GMM
                 //    }
                 //    picTennis.UnlockBits(bitmapData);
                 //} // end of unsafe
+                #endregion
                 pic1.Image = myBit;
                 pic1.Refresh();
                 #region CommentedCode
@@ -576,11 +570,163 @@ namespace GMM
             }
         }
 
+        private static void AssignPicturePointClasses(int k, int datasize, Matrix imgVecMatrix, GMM_NDim tennisGMM, int[,] imgClass3d)
+        {
+            int[] imgClass = new int[datasize];
+            for (int i = 0; i < imgVecMatrix.Rows; i++)
+            {
+                // Gamma matrix has the probabilities for a data point for its membership in each cluster
+                double[] probabs = new double[k];
+                int cnum = 0;
+                double maxprobab = tennisGMM.Gamma[i, 0];
+                for (int m = 0; m < k; m++)
+                {
+                    if (tennisGMM.Gamma[i, m] > maxprobab)
+                    {
+                        cnum = m;  // data i belongs to cluster m
+                        maxprobab = tennisGMM.Gamma[i, m];
+                    }
+                }
+                imgClass[i] = cnum;
+                //MyPoint pt = new MyPoint { ClusterId = cnum, X = X[i, 0], Y = X[i, 1] }; //delete
+                //PList.Add(pt); //delete
+            }
+            Buffer.BlockCopy(imgClass, 0, imgClass3d, 0, 4 * imgClass.Length); // 4 bytes in an int
+        }
+
+        private static void ColorPictureByCluster(int k, Bitmap picTennis, int[,] imgClass3d, Bitmap myBit)
+        {
+            Color[] colors = new Color[k];
+            Random r1 = new Random(1);
+            for (int i = 0; i < k; i++)
+            {
+                byte R = (byte)r1.Next(255);
+                byte G = (byte)r1.Next(255);
+                byte B = (byte)r1.Next(255);
+                colors[i] = Color.FromArgb(R, G, B);
+
+            }
+            int pixelNum = 0;
+            int classnum = 0;
+            for (int i = 0; i < picTennis.Height; i++)
+                for (int j = 0; j < picTennis.Width; j++)
+                {
+                    pixelNum = i * picTennis.Height + j;
+                    //classnum = imgClass[pixelNum];
+                    classnum = imgClass3d[i, j];
+                    myBit.SetPixel(j, i, colors[classnum]);
+                }
+        }
+
         private void btnTennisSwarm_Click(object sender, EventArgs e)
         {
             try
             {
+                int k = int.Parse(txtNumClusters.Text);   // number of clusters
+                int dim = 3; // number of dimensions for data
 
+                OpenFileDialog ofd = new OpenFileDialog();
+                ofd.InitialDirectory = @"S:\Users\Jkara\OneDrive\Documents\CPSC_590-AM\Assignments_Workspace\CPSC_590_Assignment7\Data\TennisImages";
+                Bitmap picTennis = null;
+                if (ofd.ShowDialog() == DialogResult.OK)
+                {
+                    string fname = ofd.FileName;
+                    FileInfo fi = new FileInfo(fname);
+                    Stream strm = fi.Open(FileMode.Open, FileAccess.Read);
+                    picTennis = new Bitmap(strm);
+                    pic1.Image = picTennis;
+                    pic1.Refresh();
+                    strm.Close();
+                }
+                int datasize = picTennis.Width * picTennis.Height;
+                double[][] imgVectorC = new double[datasize][];
+                for (int i = 0; i < datasize; i++)
+                {
+                    imgVectorC[i] = new double[dim];
+                }
+                Color c1 = new Color();
+                //Parallel.For(0, picTennis.Height, (i) =>
+                for (int i = 0; i < picTennis.Height; i++)
+                {
+                    for (int j = 0; j < picTennis.Width; j++)
+                    {
+                        c1 = picTennis.GetPixel(j, i); // x = width = j, y = height = i
+                        // blue
+                        imgVectorC[i * (picTennis.Width) + j][0] = c1.B;
+                        // green
+                        imgVectorC[i * (picTennis.Width) + j][1] = c1.G;
+                        // red
+                        imgVectorC[i * (picTennis.Width) + j][2] = c1.R;
+                    }
+                }//);
+
+
+
+                int numSwarmsToLaunch = 10;
+                int numAnswers = 5;
+                List<SwarmResult> SRes = new List<SwarmResult>();
+                while (SRes.Count < numAnswers)
+                {
+                    // Streach goal = use the best result as an input for subsequent runs.
+                    Task<SwarmResult>[] TaskArr = new Task<SwarmResult>[numSwarmsToLaunch];
+                    for (int i = 0; i < TaskArr.Length; i++)
+                    {
+                        TaskArr[i] = Task.Factory.StartNew<SwarmResult>(
+                            (obj) =>
+                            {
+                                SwarmSystem ss = new SwarmSystem((int)obj, k, dim);
+                                ss.Initialize(picTennis);
+                                SwarmResult sr = ss.DoTennisGMM();
+                                return sr;
+                            }, i);
+                    }
+
+                    //Task.WaitAll(TaskArr);
+                    List<SwarmResult> RList = new List<SwarmResult>();
+                    Task tskFinal = Task.Factory.ContinueWhenAll(TaskArr,
+                        (tsks) =>
+                        {
+                            double margin = 0.1;
+                            Console.WriteLine(tsks.Length.ToString() + " tasks");
+                            for (int i = 0; i < tsks.Length; i++)
+                            {
+                                RList.Add(tsks[i].Result);
+                            }
+                            RList.Sort();
+                            //foreach (SwarmResult sr1 in RList)
+                            //{
+                            //    int present = 0;
+                            //    foreach (SwarmResult sr in SRes)
+                            //    {
+                            //        bool presentX = sr1.X < (sr.X + margin) && sr1.X > (sr.X - margin);
+                            //        bool presentY = sr1.Y < (sr.Y + margin) && sr1.Y > (sr.Y - margin);
+                            //        if (presentX && presentY)
+                            //            present += 1;
+                            //    }
+                            //    if (present == 0)
+                            //        SRes.Add(sr1);
+
+                            //}
+                            SRes.Add(RList[0]);
+                        }
+                    );
+                    tskFinal.Wait();
+                }
+
+                SRes.Sort();
+
+
+                // determine class membership i.e., which point belongs to which cluster
+                Matrix imgVecMatrix = new Matrix(imgVectorC);
+                int[,] imgClass3d = new int[picTennis.Height, picTennis.Width];
+                AssignPicturePointClasses(k, datasize, imgVecMatrix, SRes[0].MyGMM, imgClass3d);
+                Bitmap myBit = new Bitmap(picTennis.Width, picTennis.Height);
+                ColorPictureByCluster(k, picTennis, imgClass3d, myBit);
+                pic1.Image = myBit;
+                pic1.Refresh();
+                //dataGridView1.DataSource = SRes;
+                //dataGridView1.Refresh();
+                //lblBestResult.Text = SRes[0].ToString();
             }
             catch (Exception ex)
             {
