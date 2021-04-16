@@ -487,8 +487,8 @@ namespace GMM
                 }//);
                 Matrix imgVecMatrix = new Matrix(imgVectorC);
                 GMM_NDim tennisGMM = new GMM_NDim(k, dim, imgVecMatrix);
-                tennisGMM.ComputeGMM_ND();
-                //tennisGMM.ComputeGMM_ND_Parallel();
+                //tennisGMM.ComputeGMM_ND();
+                tennisGMM.ComputeGMM_ND_Parallel();
 
                 // determine class membership i.e., which point belongs to which cluster
                 int[,] imgClass3d = new int[picTennis.Height, picTennis.Width];
