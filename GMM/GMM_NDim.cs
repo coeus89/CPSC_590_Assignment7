@@ -1,6 +1,7 @@
 ﻿using Mapack;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -331,8 +332,11 @@ namespace GMM
             ////--------------------------end initialization-------------------------------------
 
             // ---------------------------Expectation Maximization------------------------------
+            
             for (int n = 0; n < 1000; n++)
             {
+                Stopwatch sw = new Stopwatch();
+                sw.Start();
                 Console.WriteLine("Started loop n = " + n.ToString());
                 ManualResetEvent[,] pdfBlocker = new ManualResetEvent[X.Rows, k];
                 ManualResetEvent[] GdenomBlocker = new ManualResetEvent[X.Rows];
@@ -440,15 +444,6 @@ namespace GMM
                         }
                         Console.WriteLine("Finished Task 4");
                     }));
-                //for (int k1 = 0; k1 < k; k1++)
-                //{
-                //    double sum = 0;
-                //    for (int i = 0; i < X.Rows; i++)
-                //    {
-                //        sum += Gamma[i, k1];
-                //    }
-                //    phi[k1] = sum / (X.Rows);
-                //}
                 //---------------------------------
                 #endregion
 
@@ -493,7 +488,7 @@ namespace GMM
                                 //Console.WriteLine("Set MuNumberBlocker  k1: " + k1.ToString() + " m: " + m.ToString());
                             }
                         }
-                        Console.WriteLine("Finished Task 6");
+                        Console.WriteLine("Finished Task 5");
                     }));
 
                 //object olock = new object();
@@ -515,7 +510,7 @@ namespace GMM
                             MuDenom[k1] = sum;
                             MuDenomBlocker[k1].Set();
                         }
-                        Console.WriteLine("Finished Task 7");
+                        Console.WriteLine("Finished Task 6");
                     }));
                 taskList.Add(Task.Factory.StartNew(
                     () =>
@@ -534,7 +529,7 @@ namespace GMM
                                 //Console.WriteLine("Unlocking Mu: " + mu.ToString());
                             }
                         }
-                        Console.WriteLine("Finished Task 8");
+                        Console.WriteLine("Finished Task 7");
                     }));
                 //-----------------------------------
                 #endregion
@@ -571,7 +566,7 @@ namespace GMM
 
                         }
 
-                        Console.WriteLine("Finished Task 9");
+                        Console.WriteLine("Finished Task 8");
                     }));
                 
                 //--------------end update Sigma--------
@@ -587,6 +582,8 @@ namespace GMM
 
                 }
                 //---------------end Maximization-------------------------------
+                sw.Stop();
+                Console.WriteLine("Elapsed Time = " + sw.ElapsedMilliseconds);
             }
             var G = Gamma;
         }
