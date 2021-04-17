@@ -361,15 +361,17 @@ namespace GMM
                     () =>
                     {
                         // Make Parallel.for
-                        for (int i = 0; i < X.Rows; i++)
+                        // Reverse These Indices
+                        Parallel.For(0, k, (k1) =>
+                        //for (int k1 = 0; k1 < k; k1++)
                         {
-                            for (int k1 = 0; k1 < k; k1++)
+                            for (int i = 0; i < X.Rows; i++)
                             {
                                 pdf[i, k1] = GaussianMV(X, i, dim, mu[k1], sigma[k1]);
                                 pdfBlocker[i, k1].Set();
                                 //Console.WriteLine("Set pdfBlocker  i: " + i.ToString() + " k1: " + k1.ToString());
                             }
-                        }
+                        });
                         Console.WriteLine("Finished Task 1");
                     }));
 
@@ -378,7 +380,7 @@ namespace GMM
                 taskList.Add(Task.Factory.StartNew(
                     () =>
                     {
-                        // Make Parallel.for
+                        // Leave as is
                         for (int i = 0; i < X.Rows; i++) // denominator for Gamma
                         {
                             double sum = 0;
@@ -399,19 +401,21 @@ namespace GMM
                     () =>
                     {
                         // Make Parallel.for
-                        for (int i = 0; i < X.Rows; i++)
+                        // Reverse These Indices
+                        Parallel.For(0, k, (k1) =>
+                        //for (int k1 = 0; k1 < k; k1++)
                         {
-                            GdenomBlocker[i].WaitOne();
                             //Console.WriteLine("Consumed GdenomBlocker  i: " + i.ToString());
-                            for (int k1 = 0; k1 < k; k1++)
+                            for (int i = 0; i < X.Rows; i++)
                             {
+                                GdenomBlocker[i].WaitOne();
                                 pdfBlocker[i, k1].WaitOne();
                                 //Console.WriteLine("Consumed pdfBlocker  i: " + i.ToString() + " k1: " + k1.ToString());
                                 Gamma[i, k1] = (phi[k1] * pdf[i, k1]) / Gdenom[i];
                                 GammaKBlocker[i, k1].Set();
                                 //Console.WriteLine("Set GammaKBlocker  i: " + i.ToString() + " k1: " + k1.ToString());
                             }
-                        }
+                        });
                         Console.WriteLine("Finished Task 3");
                     }));
 
@@ -425,7 +429,8 @@ namespace GMM
                     () =>
                     {
                         // Make Parallel.for
-                        for (int k1 = 0; k1 < k; k1++)
+                        Parallel.For(0, k, (k1) =>
+                        //for (int k1 = 0; k1 < k; k1++)
                         {
                             double sum = 0;
                             for (int i = 0; i < X.Rows; i++)
@@ -437,7 +442,7 @@ namespace GMM
                             phi[k1] = sum / (X.Rows);
                             PhiBlocker[k1].Set();
                             //Console.WriteLine("Set PhiBlocker " + " k1: " + k1.ToString());
-                        }
+                        });
                         Console.WriteLine("Finished Task 4");
                     }));
                 //for (int k1 = 0; k1 < k; k1++)
@@ -474,7 +479,8 @@ namespace GMM
                     () =>
                     {
                         // Make Parallel.for
-                        for (int k1 = 0; k1 < k; k1++)
+                        Parallel.For(0, k, (k1) =>
+                        //for (int k1 = 0; k1 < k; k1++)
                         {
                             double[] sum = new double[dim];
                             for (int i = 0; i < X.Rows; i++)
@@ -492,8 +498,8 @@ namespace GMM
                                 MuNumberBlocker[k1, m].Set();
                                 //Console.WriteLine("Set MuNumberBlocker  k1: " + k1.ToString() + " m: " + m.ToString());
                             }
-                        }
-                        Console.WriteLine("Finished Task 6");
+                        });
+                        Console.WriteLine("Finished Task 5");
                     }));
 
                 //object olock = new object();
@@ -503,7 +509,8 @@ namespace GMM
                     () =>
                     {
                         // Make Parallel.for
-                        for (int k1 = 0; k1 < k; k1++)
+                        Parallel.For(0, k, (k1) =>
+                        //for (int k1 = 0; k1 < k; k1++)
                         {
                             double sum = 0;
                             for (int i = 0; i < X.Rows; i++)
@@ -514,14 +521,14 @@ namespace GMM
                             }
                             MuDenom[k1] = sum;
                             MuDenomBlocker[k1].Set();
-                        }
-                        Console.WriteLine("Finished Task 7");
+                        });
+                        Console.WriteLine("Finished Task 6");
                     }));
                 taskList.Add(Task.Factory.StartNew(
                     () =>
                     {
-                        // Make Parallel.for
-                        for (int i = 0; i < k; i++)
+                        Parallel.For(0, k, (i) =>
+                        //for (int i = 0; i < k; i++)
                         {
                             //Console.WriteLine("Waiting on MuDenomBlocker  i = " + i.ToString());
                             MuDenomBlocker[i].WaitOne();
@@ -533,8 +540,8 @@ namespace GMM
                                 MuBlocker[i, m].Set();
                                 //Console.WriteLine("Unlocking Mu: " + mu.ToString());
                             }
-                        }
-                        Console.WriteLine("Finished Task 8");
+                        });
+                        Console.WriteLine("Finished Task 7");
                     }));
                 //-----------------------------------
                 #endregion
@@ -546,7 +553,8 @@ namespace GMM
                     () =>
                     {
                         // Make Parallel.for
-                        for (int k1 = 0; k1 < k; k1++)
+                        Parallel.For(0, k, (k1) =>
+                        //for (int k1 = 0; k1 < k; k1++)
                         {
                             Matrix sum = new Matrix(dim, dim);
 
@@ -563,7 +571,7 @@ namespace GMM
                                 sum += ((xi - mu[k1]).Transpose() * (xi - mu[k1])) * Gamma[i, k1];
                             }
                             VarianceNumer[k1] = sum;
-                        }
+                        });
                         for (int i = 0; i < k; i++)
                         {
                             MuDenomBlocker[i].WaitOne();
@@ -571,7 +579,7 @@ namespace GMM
 
                         }
 
-                        Console.WriteLine("Finished Task 9");
+                        Console.WriteLine("Finished Task 8");
                     }));
                 
                 //--------------end update Sigma--------
