@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace GMM
 {
@@ -16,6 +17,11 @@ namespace GMM
         }
 
         private int swarmNum;
+        int datasize;
+        int picwidth;
+        int picheight;
+        double[][] imgVectorC;
+        Matrix imgVecMatrix;
         public int SwarmNum
         {
             get => swarmNum;
@@ -30,6 +36,31 @@ namespace GMM
         public void Initialize(Bitmap inputPic)
         {
             picTennis = inputPic;
+            datasize = inputPic.Width * inputPic.Height;
+            picwidth = inputPic.Width;
+            picheight = inputPic.Height;
+
+            imgVectorC = new double[datasize][];
+            for (int i = 0; i < datasize; i++)
+            {
+                imgVectorC[i] = new double[dim];
+            }
+            Color c1 = new Color();
+            //Parallel.For(0, picTennis.Height, (i) =>
+            for (int i = 0; i < picheight; i++)
+            {
+                for (int j = 0; j < picwidth; j++)
+                {
+                    c1 = picTennis.GetPixel(j, i); // x = width = j, y = height = i
+                                                   // blue
+                    imgVectorC[i * (picTennis.Width) + j][0] = c1.B;
+                    // green
+                    imgVectorC[i * (picTennis.Width) + j][1] = c1.G;
+                    // red
+                    imgVectorC[i * (picTennis.Width) + j][2] = c1.R;
+                }
+            }//);
+            imgVecMatrix = new Matrix(imgVectorC);
         }
 
         private double FunctionToSolve(double x, double y)
@@ -44,55 +75,48 @@ namespace GMM
             return res;
         }
 
-        public SwarmResult DoTennisGMM()
+        public SwarmResult DoTennisGMM(SwarmResult srIN = null)
         {
-            int datasize = picTennis.Width * picTennis.Height;
-            double[][] imgVectorC = new double[datasize][];
-            for (int i = 0; i < datasize; i++)
-            {
-                imgVectorC[i] = new double[dim];
-            }
-            Color c1 = new Color();
-            //Parallel.For(0, picTennis.Height, (i) =>
-            for (int i = 0; i < picTennis.Height; i++)
-            {
-                for (int j = 0; j < picTennis.Width; j++)
-                {
-                    c1 = picTennis.GetPixel(j, i); // x = width = j, y = height = i
-                                                   // blue
-                    imgVectorC[i * (picTennis.Width) + j][0] = c1.B;
-                    // green
-                    imgVectorC[i * (picTennis.Width) + j][1] = c1.G;
-                    // red
-                    imgVectorC[i * (picTennis.Width) + j][2] = c1.R;
-                }
-            }//);
-            Matrix imgVecMatrix = new Matrix(imgVectorC);
-
             GMM_NDim[] gmms = new GMM_NDim[10];
-            for (int j = 0; j < 10; j++)
+            if (srIN == null)
             {
-                gmms[j] = new GMM_NDim(k, dim, imgVecMatrix);
-                gmms[j].Initialize();
+                // if first run, make GMMs from scratch
+                for (int j = 0; j < 10; j++)
+                {
+                    gmms[j] = new GMM_NDim(k, dim, (Matrix)imgVecMatrix.Clone());
+                    gmms[j].Initialize();
+                }
             }
+            else
+            {
+                for (int j = 0; j < 10; j++)
+                {
+                    gmms[j] = (GMM_NDim)srIN.MyGMM.Clone();
+                    datasize = srIN.MyGMM.X.Columns * srIN.MyGMM.X.Rows;
+                }
+            }
+            
 
             List<SwarmResult> swarmResults = new List<SwarmResult>();
+            //Parallel.For(0, 10, (i) =>
             for (int i = 0; i < 10; i++) // iterations (need to make parallel)
             {
+                if (i > 0)
+                    Console.WriteLine("Wait here.");
                 GMM_NDim tennisGMM = gmms[i];
                 tennisGMM.ComputeGMM_ND_Swarm();
                 //tennisGMM.ComputeGMM_ND_Parallel();
 
                 // determine class membership i.e., which point belongs to which cluster
-                int[,] imgClass3d = new int[picTennis.Height, picTennis.Width];
+                int[,] imgClass3d = new int[picheight, picwidth];
                 AssignPicturePointClasses(k, datasize, imgVecMatrix, tennisGMM, imgClass3d);
-                double[] silhouette = computeSilhouette(k, picTennis, imgClass3d);
+                double[] silhouette = computeSilhouette(k, imgClass3d);
                 SwarmResult sr = new SwarmResult();
                 sr.silhouette = silhouette.Sum();
                 sr.MyGMM = tennisGMM;
                 sr.SwarmId = swarmNum;
                 swarmResults.Add(sr);
-            }
+            }//);
             swarmResults.Sort();
             return swarmResults[0];
         }
@@ -145,7 +169,7 @@ namespace GMM
                 }
         }
 
-        public double[] computeSilhouette(int numClasses, Bitmap tennisBitmap, int[,] imgClass3d)
+        public double[] computeSilhouette(int numClasses, int[,] imgClass3d)
         {
             List<MyPoint>[] classPoints = new List<MyPoint>[numClasses];
             List<MyPoint> allPoints = new List<MyPoint>();
@@ -155,8 +179,8 @@ namespace GMM
             }
 
             // put all points into lists
-            for (int i = 0; i < tennisBitmap.Height; i++)
-                for (int j = 0; j < tennisBitmap.Width; j++)
+            for (int i = 0; i < picheight; i++)
+                for (int j = 0; j < picwidth; j++)
                 {
                     MyPoint p1 = new MyPoint(imgClass3d[i, j], j, i);
                     List<MyPoint> plist = classPoints[imgClass3d[i, j]];

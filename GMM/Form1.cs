@@ -660,9 +660,10 @@ namespace GMM
                     }
                 }//);
 
+                object olock = new object();
 
 
-                int numSwarmsToLaunch = 10;
+                int numSwarmsToLaunch = 1;
                 int numAnswers = 5;
                 List<SwarmResult> SRes = new List<SwarmResult>();
                 while (SRes.Count < numAnswers)
@@ -671,14 +672,34 @@ namespace GMM
                     Task<SwarmResult>[] TaskArr = new Task<SwarmResult>[numSwarmsToLaunch];
                     for (int i = 0; i < TaskArr.Length; i++)
                     {
-                        TaskArr[i] = Task.Factory.StartNew<SwarmResult>(
+                        if(SRes.Count == 0)
+                        {
+                            TaskArr[i] = Task.Factory.StartNew<SwarmResult>(
                             (obj) =>
                             {
                                 SwarmSystem ss = new SwarmSystem((int)obj, k, dim);
-                                ss.Initialize(picTennis);
+                                lock (olock)
+                                {
+                                    ss.Initialize(picTennis);
+                                }
                                 SwarmResult sr = ss.DoTennisGMM();
                                 return sr;
                             }, i);
+                        }
+                        else
+                        {
+                            TaskArr[i] = Task.Factory.StartNew<SwarmResult>(
+                            (obj) =>
+                            {
+                                SwarmSystem ss = new SwarmSystem((int)obj, k, dim);
+                                lock (olock)
+                                {
+                                    ss.Initialize(picTennis);
+                                }
+                                SwarmResult sr = ss.DoTennisGMM(SRes[0]);
+                                return sr;
+                            }, i);
+                        }
                     }
 
                     //Task.WaitAll(TaskArr);
@@ -708,6 +729,7 @@ namespace GMM
 
                             //}
                             SRes.Add(RList[0]);
+                            SRes.Sort();
                         }
                     );
                     tskFinal.Wait();
